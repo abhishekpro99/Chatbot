@@ -1,0 +1,14 @@
+Django>=4.2,<5.0
+llama-index
+llama-index-llms-gemini
+llama-index-embeddings-huggingface
+sentence-transformers
+PyMuPDF
+google-generativeai
+python-dotenv
+botbuilder-core>=4.14.0
+botbuilder-schema>=4.14.0
+aiohttp>=3.8.0
+requests>=2.25.0
+gunicorn>=20.0.4
+msrest>=0.6.21
