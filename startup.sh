@@ -16,5 +16,8 @@ gunicorn hr_policy_bot_project.wsgi:application --bind 0.0.0.0:8000 --workers 4 
 
 
 # Start the Bot app (port 3978)
-echo "Starting Bot Framework aiohttp app..."
-python bot_app.py
+# echo "Starting Bot Framework aiohttp app..."
+# python bot_app.py &
+
+# Wait for background processes to keep container alive
+wait
