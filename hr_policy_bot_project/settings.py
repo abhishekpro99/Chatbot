@@ -6,7 +6,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = 'django-insecure-please-change-me'
 
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ['*']
 
@@ -73,5 +73,11 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# Additional settings to avoid warnings when running aiohttp + Django in same process
+import warnings
+warnings.filterwarnings('ignore', category=RuntimeWarning, message='.*Timezone support will be disabled.*')
+os.environ['TZ'] = 'UTC'
 
 
