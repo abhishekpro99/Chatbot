@@ -56,7 +56,7 @@ class AskEndpoint(View):
             return JsonResponse({"error": str(e)}, status=500)
 
 # -------------------------------
-# Microsoft Bot Framework endpoint (for Teams) using Bot Framework SDK
+# Microsoft Bot Framework endpoint (for Teams) - improved async
 # -------------------------------
 from botbuilder.core import BotFrameworkAdapterSettings, BotFrameworkAdapter, TurnContext
 from botbuilder.schema import Activity
@@ -76,19 +76,21 @@ adapter.on_turn_error = on_error
 class BotFrameworkEndpoint(View):
     def post(self, request):
         try:
-            # Deserialize incoming Activity
             body_unicode = request.body.decode("utf-8")
             body = json.loads(body_unicode)
             activity = Activity().deserialize(body)
 
             print(f"👉 Incoming Teams activity type: {activity.type}")
 
+            # Respond quickly to Bot Framework to avoid timeout
+            response = HttpResponse(status=200)
+
+            # Define bot logic
             async def aux_func(turn_context: TurnContext):
                 if activity.type == "message":
                     user_input = activity.text
                     print(f"👉 Teams message: '{user_input}'")
 
-                    # Call your HRPolicyBot
                     bot_response = bot.chat(user_input)
                     print(f"✅ Sending reply: '{bot_response}'")
 
@@ -96,20 +98,17 @@ class BotFrameworkEndpoint(View):
                 else:
                     print(f"Received non-message activity: {activity.type}")
 
-            # Run BotFrameworkAdapter pipeline
-            loop = asyncio.get_event_loop_policy().get_event_loop()
-            if loop.is_running():
-                # If already running (rare case)
-                asyncio.ensure_future(
-                    adapter.process_activity(activity, request.headers.get("Authorization", ""), aux_func)
+            # Run bot processing in background event loop
+            asyncio.ensure_future(
+                adapter.process_activity(
+                    activity,
+                    request.headers.get("Authorization", ""),
+                    aux_func
                 )
-            else:
-                # Normal case
-                loop.run_until_complete(
-                    adapter.process_activity(activity, request.headers.get("Authorization", ""), aux_func)
-                )
+            )
 
-            return HttpResponse(status=200)
+            # Immediately return 200 OK
+            return response
 
         except Exception as e:
             logging.exception("Error in BotFrameworkEndpoint")

@@ -1,6 +1,6 @@
-
 import os
 from pathlib import Path
+import warnings
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -20,10 +20,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',  # added
     'hr_policy_bot',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',  # added
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -74,10 +76,35 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# CORS settings for Bot Framework (DirectLine, Teams, WebChat)
+CORS_ALLOW_ALL_ORIGINS = True  # allow all temporarily; for prod use CORS_ALLOWED_ORIGINS
+
+# Example safer config (optional):
+# CORS_ALLOWED_ORIGINS = [
+#     'https://hrpolicybot.azurewebsites.net',
+#     'https://YOUR_WEBCHAT_CLIENT_URL',
+# ]
+
+# CSRF trusted origins (optional, for production security)
+CSRF_TRUSTED_ORIGINS = [
+    'https://hrpolicybot.azurewebsites.net',
+]
+
+# Logging to console (Azure App Service friendly)
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+}
 
 # Additional settings to avoid warnings when running aiohttp + Django in same process
-import warnings
 warnings.filterwarnings('ignore', category=RuntimeWarning, message='.*Timezone support will be disabled.*')
 os.environ['TZ'] = 'UTC'
-
-
