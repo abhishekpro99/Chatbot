@@ -78,6 +78,3 @@ jobs:
         with:
           app-name: 'HRPolicyBott'
           slot-name: 'Production'
-          # Set Oryx build parameters explicitly
-          enable-oryx-build: true
-          runtime-stack: 'PYTHON|3.10'
