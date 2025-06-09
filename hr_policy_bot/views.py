@@ -67,6 +67,7 @@ class BotFrameworkEndpoint(View):
 
             if activity_type == "message":
                 user_input = body.get("text", "")
+                activity_id = body.get("id", None)
 
                 print(f"👉 Teams message: '{user_input}'")
 
@@ -77,8 +78,11 @@ class BotFrameworkEndpoint(View):
 
                 reply = {
                     "type": "message",
-                    "text": bot_response
+                    "text": bot_response,
+                    "replyToId": activity_id
                 }
+
+                print(f"✅ Sending reply: '{bot_response}'")
 
                 return JsonResponse(reply)
 
