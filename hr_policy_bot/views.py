@@ -53,10 +53,10 @@ class AskEndpoint(View):
 
         except Exception as e:
             logging.exception("Error in AskEndpoint")
-            return JsonResponse({"error": str(e)}, status=500)
+            return JsonResponse({"error": str(e)}, status=500})
 
 # -------------------------------
-# Microsoft Bot Framework endpoint (for Teams) - improved async
+# Microsoft Bot Framework endpoint (for Teams) - FINAL version
 # -------------------------------
 from botbuilder.core import BotFrameworkAdapterSettings, BotFrameworkAdapter, TurnContext
 from botbuilder.schema import Activity
@@ -82,33 +82,38 @@ class BotFrameworkEndpoint(View):
 
             print(f"👉 Incoming Teams activity type: {activity.type}")
 
-            # Respond quickly to Bot Framework to avoid timeout
-            response = HttpResponse(status=200)
-
-            # Define bot logic
             async def aux_func(turn_context: TurnContext):
-                if activity.type == "message":
-                    user_input = activity.text
+                print(f"👉 TurnContext.activity.type: {turn_context.activity.type}")
+
+                if turn_context.activity.type == "message":
+                    user_input = turn_context.activity.text
                     print(f"👉 Teams message: '{user_input}'")
 
-                    bot_response = bot.chat(user_input)
-                    print(f"✅ Sending reply: '{bot_response}'")
-
-                    await turn_context.send_activity(bot_response)
+                    try:
+                        bot_response = bot.chat(user_input)
+                        print(f"✅ Sending reply: '{bot_response}'")
+                        await turn_context.send_activity(bot_response)
+                    except Exception as e:
+                        print(f"❌ Error while generating bot response: {e}")
+                        await turn_context.send_activity("❗ Sorry, I could not process your message.")
                 else:
-                    print(f"Received non-message activity: {activity.type}")
+                    print(f"Received non-message activity: {turn_context.activity.type}")
 
-            # Run bot processing in background event loop
-            asyncio.ensure_future(
+            # Run adapter in synchronous event loop to guarantee reply
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            task = loop.create_task(
                 adapter.process_activity(
                     activity,
                     request.headers.get("Authorization", ""),
                     aux_func
                 )
             )
+            loop.run_until_complete(task)
+            loop.close()
 
-            # Immediately return 200 OK
-            return response
+            # Return 200 OK to Bot Framework (Teams)
+            return HttpResponse(status=200)
 
         except Exception as e:
             logging.exception("Error in BotFrameworkEndpoint")
