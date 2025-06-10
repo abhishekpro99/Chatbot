@@ -53,7 +53,8 @@ class AskEndpoint(View):
 
         except Exception as e:
             logging.exception("Error in AskEndpoint")
-            return JsonResponse({"error": str(e)}, status=500})
+            return JsonResponse({"error": str(e)}, status=500)
+
 
 # -------------------------------
 # Microsoft Bot Framework endpoint (for Teams) - FINAL version
