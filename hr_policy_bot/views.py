@@ -4,6 +4,7 @@ import os
 import json
 import logging
 import asyncio
+import aiohttp
 
 from django.views import View
 from django.http import JsonResponse, HttpResponse
@@ -22,6 +23,9 @@ bot = HRPolicyBot()
 # Microsoft credentials
 MS_APP_ID = os.getenv("MicrosoftAppId")
 MS_APP_PASSWORD = os.getenv("MicrosoftAppPassword")
+TENANT_ID = os.getenv("TENANT_ID")
+CLIENT_ID = os.getenv("CLIENT_ID")
+CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 
 # -------------------------------
 # Health check endpoint (GET)
@@ -73,6 +77,46 @@ async def on_error(context: TurnContext, error: Exception):
 
 adapter.on_turn_error = on_error
 
+# -----------------------------
+# Get Microsoft Teams user's email using Graph API
+# -----------------------------
+def get_user_email_from_graph(aad_object_id: str) -> str:
+    try:
+        # Get an access token for Microsoft Graph using client credentials
+        token_url = f"https://login.microsoftonline.com/{TENANT_ID}/oauth2/v2.0/token"
+        token_data = {
+            "grant_type": "client_credentials",
+            "client_id": CLIENT_ID,
+            "client_secret": CLIENT_SECRET,
+            "scope": "https://graph.microsoft.com/.default"
+        }
+        token_response = requests.post(token_url, data=token_data)
+        token_json = token_response.json()
+
+        access_token = token_json.get("access_token")
+        if not access_token:
+            logging.error("❌ Failed to get access token for Graph API.")
+            return None
+
+        # Call Graph API to get user profile
+        graph_url = f"https://graph.microsoft.com/v1.0/users/{aad_object_id}"
+        headers = {
+            "Authorization": f"Bearer {access_token}"
+        }
+        response = requests.get(graph_url, headers=headers)
+
+        if response.status_code == 200:
+            user_data = response.json()
+            return user_data.get("mail") or user_data.get("userPrincipalName")
+        else:
+            logging.warning(f"⚠️ Graph API returned error: {response.status_code} - {response.text}")
+            return None
+
+    except Exception as e:
+        logging.error(f"❌ Error fetching email: {e}")
+        return None
+
+
 @method_decorator(csrf_exempt, name='dispatch')
 class BotFrameworkEndpoint(View):
     def post(self, request):
@@ -89,6 +133,11 @@ class BotFrameworkEndpoint(View):
                 if turn_context.activity.type == "message":
                     user_input = turn_context.activity.text
                     print(f"👉 Teams message: '{user_input}'")
+
+                     # Fetch user AAD object ID
+                    user_aad_object_id = turn_context.activity.from_property.aad_object_id
+                    user_email = get_user_email_from_graph(user_aad_object_id)
+                    print(f"📧 User email: {user_email}")
 
                     try:
                         bot_response = bot.chat(user_input)
