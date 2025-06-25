@@ -1,5 +1,4 @@
 #!/bin/bash
-#!/bin/bash
 
 
 # Optional: activate virtual environment (not needed in Azure App Service Linux, it handles venv itself)
