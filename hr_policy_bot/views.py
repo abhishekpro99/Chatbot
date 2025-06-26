@@ -62,29 +62,14 @@ class AskEndpoint(View):
             return JsonResponse({"error": str(e)}, status=500)
 
 
-# -------------------------------
-# Microsoft Bot Framework endpoint (for Teams) - FINAL version
-# -------------------------------
-from botbuilder.core import BotFrameworkAdapterSettings, BotFrameworkAdapter, TurnContext
-from botbuilder.schema import Activity
-
-# Initialize adapter
-adapter_settings = BotFrameworkAdapterSettings(MS_APP_ID, MS_APP_PASSWORD)
-adapter = BotFrameworkAdapter(adapter_settings)
-
-# Error handler
-async def on_error(context: TurnContext, error: Exception):
-    print(f"⚠️ Exception: {error}")
-    await context.send_activity("❗ Sorry, an error occurred. Please try again later.")
-
-adapter.on_turn_error = on_error
-
 # -----------------------------
 # Get Microsoft Teams user's email using Graph API
 # -----------------------------
-def get_user_email_from_graph(aad_object_id: str) -> str:
+def get_user_email_from_graph(user_id: str = None) -> str:
     try:
-        # Get an access token for Microsoft Graph using client credentials
+        print("🔍 Attempting to fetch user email from Microsoft Graph...")
+
+        # Step 1: Get access token for Microsoft Graph
         token_url = f"https://login.microsoftonline.com/{TENANT_ID}/oauth2/v2.0/token"
         token_data = {
             "grant_type": "client_credentials",
@@ -92,30 +77,45 @@ def get_user_email_from_graph(aad_object_id: str) -> str:
             "client_secret": CLIENT_SECRET,
             "scope": "https://graph.microsoft.com/.default"
         }
+
         token_response = requests.post(token_url, data=token_data)
         token_json = token_response.json()
-
         access_token = token_json.get("access_token")
+
         if not access_token:
-            logging.error("❌ Failed to get access token for Graph API.")
+            print("❌ Failed to retrieve access token.")
             return None
 
-        # Call Graph API to get user profile
-        graph_url = f"https://graph.microsoft.com/v1.0/users/{aad_object_id}"
         headers = {
-            "Authorization": f"Bearer {access_token}"
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
         }
+
+        # Step 2: Call Graph API with fallback logic
+        if user_id:
+            graph_url = f"https://graph.microsoft.com/v1.0/users/{user_id}"
+            print(f"📡 Calling Graph API: {graph_url}")
+        else:
+            graph_url = "https://graph.microsoft.com/v1.0/me"
+            print("⚠️ No AAD Object ID provided, falling back to /me (may not work for app tokens)")
+
         response = requests.get(graph_url, headers=headers)
+        print(f"📡 Graph API response code: {response.status_code}")
 
         if response.status_code == 200:
             user_data = response.json()
             return user_data.get("mail") or user_data.get("userPrincipalName")
+        elif response.status_code == 403:
+            print(f"❌ Permission denied: {response.text}")
+        elif response.status_code == 404:
+            print(f"❌ User not found with ID: {user_id}")
         else:
-            logging.warning(f"⚠️ Graph API returned error: {response.status_code} - {response.text}")
-            return None
+            print(f"❌ Unexpected Graph error: {response.status_code} - {response.text}")
+
+        return None
 
     except Exception as e:
-        logging.error(f"❌ Error fetching email: {e}")
+        print(f"❌ Exception while calling Graph API: {e}")
         return None
 
 
@@ -123,8 +123,7 @@ def get_user_email_from_graph(aad_object_id: str) -> str:
 class BotFrameworkEndpoint(View):
     def post(self, request):
         try:
-            body_unicode = request.body.decode("utf-8")
-            body = json.loads(body_unicode)
+            body = json.loads(request.body.decode("utf-8"))
             activity = Activity().deserialize(body)
 
             print(f"👉 Incoming Teams activity type: {activity.type}")
@@ -136,8 +135,10 @@ class BotFrameworkEndpoint(View):
                     user_input = turn_context.activity.text
                     print(f"👉 Teams message: '{user_input}'")
 
-                     # Fetch user AAD object ID
-                    user_aad_object_id = turn_context.activity.from_property.aad_object_id
+                    # Safely get AAD object ID from Teams
+                    user_aad_object_id = getattr(turn_context.activity.from_property, "aad_object_id", None)
+                    if not user_aad_object_id:
+                        print("⚠️ No AAD object ID found in activity.")
                     user_email = get_user_email_from_graph(user_aad_object_id)
                     print(f"📧 User email: {user_email}")
 
@@ -149,9 +150,9 @@ class BotFrameworkEndpoint(View):
                         print(f"❌ Error while generating bot response: {e}")
                         await turn_context.send_activity("❗ Sorry, I could not process your message.")
                 else:
-                    print(f"Received non-message activity: {turn_context.activity.type}")
+                    print(f"ℹ️ Received non-message activity: {turn_context.activity.type}")
 
-            # Run adapter in synchronous event loop to guarantee reply
+            # Process activity with new event loop
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             task = loop.create_task(
@@ -164,7 +165,6 @@ class BotFrameworkEndpoint(View):
             loop.run_until_complete(task)
             loop.close()
 
-            # Return 200 OK to Bot Framework (Teams)
             return HttpResponse(status=200)
 
         except Exception as e:
