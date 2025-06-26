@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Configure models
-Settings.llm = Gemini(api_key=os.getenv("GEMINI_API_KEY"))
+Settings.llm = Gemini(api_key=os.getenv("GOOGLE_API_KEY"))
 Settings.embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-en-v1.5")
 
 # DEVELOPMENT FLAG - set to True if you want to rebuild index on every startup

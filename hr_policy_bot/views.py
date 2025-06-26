@@ -16,6 +16,8 @@ from django.utils.decorators import method_decorator
 from dotenv import load_dotenv
 from chatbot_core.chatbot import HRPolicyBot
 
+
+
 # Load environment variables
 load_dotenv()
 
@@ -61,6 +63,23 @@ class AskEndpoint(View):
             logging.exception("Error in AskEndpoint")
             return JsonResponse({"error": str(e)}, status=500)
 
+
+# -------------------------------
+# Microsoft Bot Framework endpoint (for Teams) - FINAL version
+# -------------------------------
+from botbuilder.core import BotFrameworkAdapterSettings, BotFrameworkAdapter, TurnContext
+from botbuilder.schema import Activity
+
+# Initialize adapter
+adapter_settings = BotFrameworkAdapterSettings(MS_APP_ID, MS_APP_PASSWORD)
+adapter = BotFrameworkAdapter(adapter_settings)
+
+# Error handler
+async def on_error(context: TurnContext, error: Exception):
+    print(f"⚠️ Exception: {error}")
+    await context.send_activity("❗ Sorry, an error occurred. Please try again later.")
+
+adapter.on_turn_error = on_error
 
 # -----------------------------
 # Get Microsoft Teams user's email using Graph API
